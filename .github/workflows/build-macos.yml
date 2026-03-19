@@ -27,23 +27,30 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install system dependencies
+        run: |
+          brew install media-info tcl-tk
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install nuitka requests
+          pip install nuitka ordered-set requests
+          pip install av cpuid Fast-SSIM opencc opencv-python-headless \
+            psutil pymediainfo "PySimpleGUI-4-foss" thefuzz wakepy \
+            "wordninja-enhanced" plyer
 
       - name: Compile GUI with Nuitka
-        run: python -m nuitka VideOCR.py
+        run: python -m nuitka --assume-yes-for-downloads VideOCR.py
 
       - name: Compile CLI with Nuitka
         working-directory: CLI
-        run: python -m nuitka videocr_cli.py
+        run: python -m nuitka --assume-yes-for-downloads videocr_cli.py
 
       - name: Read app version
         id: version
         run: echo "version=$(python -c 'from _version import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"
 
-      - name: Package .app bundle
+      - name: Package and sign .app bundle
         env:
           VERSION: ${{ steps.version.outputs.version }}
           RELEASE_TYPE: ${{ github.event.inputs.release_type }}
@@ -59,6 +66,9 @@ jobs:
           # Embed CLI inside the .app bundle where find_videocr_program() looks:
           # APP_DIR = VideOCR.app/Contents/MacOS/
           mv CLI/videocr_cli.dist "VideOCR.app/Contents/MacOS/${CLI_FOLDER}"
+
+          # Ad-hoc codesign — required for Apple Silicon (M1/M2/M3)
+          codesign --force --deep --sign - "VideOCR.app"
 
           mkdir -p Releases
           mv "VideOCR.app" "Releases/${APP_NAME}.app"
