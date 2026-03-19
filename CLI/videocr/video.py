@@ -8,7 +8,7 @@ import tempfile
 import threading
 
 import cv2
-import fast_ssim
+from skimage.metrics import structural_similarity as _ssim
 import wordninja_enhanced as wordninja
 from pymediainfo import MediaInfo
 
@@ -204,7 +204,7 @@ class Video:
                                 raise ValueError(f"Invalid subtitle_position: {subtitle_position}")
 
                             if prev_samples[zone_idx] is not None:
-                                score = fast_ssim.ssim(prev_samples[zone_idx], sample, data_range=255)
+                                score = _ssim(prev_samples[zone_idx], sample, data_range=255, channel_axis=2 if sample.ndim == 3 else None)
                                 if score > ssim_threshold:
                                     prev_samples[zone_idx] = sample
                                     continue

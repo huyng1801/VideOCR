@@ -20,8 +20,8 @@ classifiers = [
 ]
 dependencies = [
     "av",
-    "cpuid",
-    "Fast-SSIM",
+    "cpuid ; platform_machine != 'arm64'",
+    "scikit-image",
     "opencc",
     "opencv-python-headless",
     "psutil",
