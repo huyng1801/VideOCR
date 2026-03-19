@@ -84,24 +84,8 @@ jobs:
           mv CLI/videocr_cli.dist "VideOCR.app/Contents/MacOS/${CLI_FOLDER}"
 
           # codesign treats every directory inside Contents/MacOS/ as a "nested bundle".
-          # The Nuitka flat dist folder has no Info.plist → "bundle format unrecognized".
-          # Fix: inject a minimal Info.plist so codesign can accept it as a valid tool bundle.
-          cat > "VideOCR.app/Contents/MacOS/${CLI_FOLDER}/Info.plist" << PLIST_EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>videocr-cli</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.videocr.cli</string>
-    <key>CFBundlePackageType</key>
-    <string>TOOL</string>
-    <key>CFBundleVersion</key>
-    <string>${VERSION}</string>
-</dict>
-</plist>
-PLIST_EOF
+          # Inject a minimal Info.plist so codesign accepts it as a valid TOOL bundle.
+          python3 -c "open('VideOCR.app/Contents/MacOS/${CLI_FOLDER}/Info.plist','w').write('<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>videocr-cli</string><key>CFBundleIdentifier</key><string>com.videocr.cli</string><key>CFBundlePackageType</key><string>TOOL</string></dict></plist>')"
 
           # Sign bottom-up: libraries → CLI executable → CLI bundle → GUI binary → outer .app
           # Step 1: sign all .dylib and .so files inside the entire .app tree
@@ -134,7 +118,7 @@ PLIST_EOF
           APP_NAME="VideOCR-v${VERSION}${SUFFIX}-macOS-arm64"
 
           echo "=== Verify codesign ==="
-          codesign -v --deep "Releases/${APP_NAME}.app" && echo "codesign OK"
+          codesign -v "Releases/${APP_NAME}.app" && echo "codesign OK"
 
           echo "=== Verify zip exists ==="
           test -f "Releases/${APP_NAME}.zip" || { echo "ERROR: zip not created"; exit 1; }
