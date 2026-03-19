@@ -83,8 +83,17 @@ jobs:
           # APP_DIR = VideOCR.app/Contents/MacOS/
           mv CLI/videocr_cli.dist "VideOCR.app/Contents/MacOS/${CLI_FOLDER}"
 
-          # Ad-hoc codesign — required for Apple Silicon (M1/M2/M3)
-          codesign --force --deep --sign - "VideOCR.app"
+          # Ad-hoc codesign — sign bottom-up (innermost first) to avoid
+          # "bundle format unrecognized" error from --deep on Nuitka flat dist folders.
+          # Step 1: sign all .dylib and .so files
+          find "VideOCR.app" -type f \( -name "*.dylib" -o -name "*.so" \) \
+            -exec codesign --force --sign - {} \;
+          # Step 2: sign all executable files (skip already-signed bundles)
+          find "VideOCR.app" -type f -perm +0111 \
+            ! -name "*.py" ! -name "*.sh" \
+            -exec codesign --force --sign - {} \; 2>/dev/null || true
+          # Step 3: sign the outer .app (no --deep since internals are pre-signed)
+          codesign --force --sign - "VideOCR.app"
 
           mkdir -p Releases
           mv "VideOCR.app" "Releases/${APP_NAME}.app"
