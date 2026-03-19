@@ -83,16 +83,37 @@ jobs:
           # APP_DIR = VideOCR.app/Contents/MacOS/
           mv CLI/videocr_cli.dist "VideOCR.app/Contents/MacOS/${CLI_FOLDER}"
 
-          # Ad-hoc codesign — sign bottom-up (innermost first) to avoid
-          # "bundle format unrecognized" error from --deep on Nuitka flat dist folders.
-          # Step 1: sign all .dylib and .so files
+          # codesign treats every directory inside Contents/MacOS/ as a "nested bundle".
+          # The Nuitka flat dist folder has no Info.plist → "bundle format unrecognized".
+          # Fix: inject a minimal Info.plist so codesign can accept it as a valid tool bundle.
+          cat > "VideOCR.app/Contents/MacOS/${CLI_FOLDER}/Info.plist" << PLIST_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>videocr-cli</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.videocr.cli</string>
+    <key>CFBundlePackageType</key>
+    <string>TOOL</string>
+    <key>CFBundleVersion</key>
+    <string>${VERSION}</string>
+</dict>
+</plist>
+PLIST_EOF
+
+          # Sign bottom-up: libraries → CLI executable → CLI bundle → GUI binary → outer .app
+          # Step 1: sign all .dylib and .so files inside the entire .app tree
           find "VideOCR.app" -type f \( -name "*.dylib" -o -name "*.so" \) \
             -exec codesign --force --sign - {} \;
-          # Step 2: sign all executable files (skip already-signed bundles)
-          find "VideOCR.app" -type f -perm +0111 \
-            ! -name "*.py" ! -name "*.sh" \
-            -exec codesign --force --sign - {} \; 2>/dev/null || true
-          # Step 3: sign the outer .app (no --deep since internals are pre-signed)
+          # Step 2: sign the CLI executable
+          codesign --force --sign - "VideOCR.app/Contents/MacOS/${CLI_FOLDER}/videocr-cli"
+          # Step 3: sign the CLI flat bundle (now valid thanks to Info.plist)
+          codesign --force --sign - "VideOCR.app/Contents/MacOS/${CLI_FOLDER}"
+          # Step 4: sign the GUI binary
+          codesign --force --sign - "VideOCR.app/Contents/MacOS/VideOCR"
+          # Step 5: sign the outer .app (all subcomponents already signed)
           codesign --force --sign - "VideOCR.app"
 
           mkdir -p Releases
