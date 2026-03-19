@@ -1,0 +1,81 @@
+name: Build macOS (Apple Silicon)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Optional release type suffix (e.g., Beta, RC1)'
+        required: false
+        default: ''
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Homebrew dependencies
+        run: |
+          brew install p7zip
+          brew install tcl-tk
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure tkinter for Nuitka
+        run: |
+          TCL_TK_PREFIX="$(brew --prefix tcl-tk)"
+          echo "TCLTK_CFLAGS=-I${TCL_TK_PREFIX}/include" >> "$GITHUB_ENV"
+          echo "TCLTK_LIBS=-L${TCL_TK_PREFIX}/lib -ltcl8.6 -ltk8.6" >> "$GITHUB_ENV"
+          echo "${TCL_TK_PREFIX}/bin" >> "$GITHUB_PATH"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install . --group build
+
+      - name: Compile GUI with Nuitka
+        run: python -m nuitka VideOCR.py
+
+      - name: Compile CLI with Nuitka
+        working-directory: CLI
+        run: python -m nuitka videocr_cli.py
+
+      - name: Read app version
+        id: version
+        run: echo "version=$(python -c 'from _version import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"
+
+      - name: Package artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
+        run: |
+          SUFFIX=""
+          if [ -n "$RELEASE_TYPE" ]; then
+            SUFFIX="-$RELEASE_TYPE"
+          fi
+
+          GUI_NAME="VideOCR-CPU-v${VERSION}${SUFFIX}-macOS-arm64"
+          CLI_NAME="videocr-cli-CPU-v${VERSION}${SUFFIX}-macOS-arm64"
+
+          mkdir -p Releases
+          mv VideOCR.dist "Releases/${GUI_NAME}"
+          mv CLI/videocr_cli.dist "Releases/${CLI_NAME}"
+
+          cd Releases
+          7z a -t7z -mx=9 "${GUI_NAME}.7z" "${GUI_NAME}"
+          7z a -t7z -mx=9 "${CLI_NAME}.7z" "${CLI_NAME}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideOCR-macOS-arm64
+          path: Releases/*.7z
+          if-no-files-found: error

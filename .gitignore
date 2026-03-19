@@ -1,0 +1,20 @@
+# Pycache
+__pycache__/
+
+# Config file
+videocr_gui_config.ini
+
+# Distribution / SCM
+*.egg-info/
+/Releases/
+/VideOCR.dist/
+/CLI/videocr_cli.dist/
+/CLI/PaddleOCR*
+/videocr-cli*/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
