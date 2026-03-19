@@ -11,6 +11,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: macos-14
@@ -20,26 +23,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Homebrew dependencies
-        run: |
-          brew install p7zip
-          brew install tcl-tk
+        run: brew install p7zip
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Configure tkinter for Nuitka
-        run: |
-          TCL_TK_PREFIX="$(brew --prefix tcl-tk)"
-          echo "TCLTK_CFLAGS=-I${TCL_TK_PREFIX}/include" >> "$GITHUB_ENV"
-          echo "TCLTK_LIBS=-L${TCL_TK_PREFIX}/lib -ltcl8.6 -ltk8.6" >> "$GITHUB_ENV"
-          echo "${TCL_TK_PREFIX}/bin" >> "$GITHUB_PATH"
-
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install . --group build
+          pip install nuitka requests
 
       - name: Compile GUI with Nuitka
         run: python -m nuitka VideOCR.py

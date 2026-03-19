@@ -1,11 +1,12 @@
 # Compilation instructions
 # nuitka-project: --standalone
 # nuitka-project: --enable-plugin=tk-inter
-# nuitka-project: --windows-console-mode=disable
-# nuitka-project: --include-windows-runtime-dlls=yes
 # nuitka-project: --include-data-files=Installer/*.ico=VideOCR.ico
 # nuitka-project: --include-data-files=Installer/*.png=VideOCR.png
 # nuitka-project: --include-data-dir=languages=languages
+# nuitka-project-if: {OS} == "Windows":
+#     nuitka-project: --windows-console-mode=disable
+#     nuitka-project: --include-windows-runtime-dlls=yes
 
 # Windows-specific metadata for the executable
 # nuitka-project-if: {OS} == "Windows":
