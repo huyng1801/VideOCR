@@ -4,7 +4,10 @@ import platform
 import subprocess
 import sys
 
-from cpuid import cpuid, xgetbv
+_is_x86 = platform.machine() in ('x86_64', 'AMD64', 'x86', 'i686', 'i386')
+
+if _is_x86:
+    from cpuid import cpuid, xgetbv
 
 from .lang_dictionaries import (
     ARABIC_LANGS,
@@ -178,6 +181,9 @@ def perform_hardware_check(paddleocr_path: str, use_gpu: bool) -> None:
     warning_prefix = "Hardware Check Warning:"
 
     def has_avx() -> bool:
+        if not _is_x86:
+            return True  # AVX check is x86-only; ARM does not need it
+
         # CPUID leaf 1: Check AVX and OSXSAVE flags
         _, _, ecx, _ = cpuid(1)
         osxsave = bool(ecx & (1 << 27))
