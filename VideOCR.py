@@ -7,6 +7,9 @@
 # nuitka-project-if: {OS} == "Windows":
 #     nuitka-project: --windows-console-mode=disable
 #     nuitka-project: --include-windows-runtime-dlls=yes
+# nuitka-project-if: {OS} == "Darwin":
+#     nuitka-project: --macos-create-app-bundle
+#     nuitka-project: --macos-app-name=VideOCR
 
 # Windows-specific metadata for the executable
 # nuitka-project-if: {OS} == "Windows":
@@ -160,7 +163,13 @@ def find_videocr_program():
     base_folders = [f'videocr-cli-CPU-v{PROGRAM_VERSION}', f'videocr-cli-GPU-v{PROGRAM_VERSION}']
     program_name = 'videocr-cli'
 
-    extensions = ".exe" if platform.system() == "Windows" else ".bin"
+    system = platform.system()
+    if system == "Windows":
+        extensions = ".exe"
+    elif system == "Darwin":
+        extensions = ""
+    else:
+        extensions = ".bin"
 
     for entry in os.listdir(APP_DIR):
         for base in base_folders:

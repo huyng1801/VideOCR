@@ -22,9 +22,6 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Install Homebrew dependencies
-        run: brew install p7zip
-
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -46,7 +43,7 @@ jobs:
         id: version
         run: echo "version=$(python -c 'from _version import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"
 
-      - name: Package artifacts
+      - name: Package .app bundle
         env:
           VERSION: ${{ steps.version.outputs.version }}
           RELEASE_TYPE: ${{ github.event.inputs.release_type }}
@@ -56,20 +53,22 @@ jobs:
             SUFFIX="-$RELEASE_TYPE"
           fi
 
-          GUI_NAME="VideOCR-CPU-v${VERSION}${SUFFIX}-macOS-arm64"
-          CLI_NAME="videocr-cli-CPU-v${VERSION}${SUFFIX}-macOS-arm64"
+          APP_NAME="VideOCR-v${VERSION}${SUFFIX}-macOS-arm64"
+          CLI_FOLDER="videocr-cli-CPU-v${VERSION}"
+
+          # Embed CLI inside the .app bundle where find_videocr_program() looks:
+          # APP_DIR = VideOCR.app/Contents/MacOS/
+          mv CLI/videocr_cli.dist "VideOCR.app/Contents/MacOS/${CLI_FOLDER}"
 
           mkdir -p Releases
-          mv VideOCR.dist "Releases/${GUI_NAME}"
-          mv CLI/videocr_cli.dist "Releases/${CLI_NAME}"
+          mv "VideOCR.app" "Releases/${APP_NAME}.app"
 
-          cd Releases
-          7z a -t7z -mx=9 "${GUI_NAME}.7z" "${GUI_NAME}"
-          7z a -t7z -mx=9 "${CLI_NAME}.7z" "${CLI_NAME}"
+          # Use ditto to create a zip that preserves macOS metadata
+          ditto -c -k --keepParent "Releases/${APP_NAME}.app" "Releases/${APP_NAME}.zip"
 
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: VideOCR-macOS-arm64
-          path: Releases/*.7z
+          path: Releases/*.zip
           if-no-files-found: error
