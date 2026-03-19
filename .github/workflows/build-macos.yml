@@ -50,6 +50,22 @@ jobs:
         id: version
         run: echo "version=$(python -c 'from _version import __version__; print(__version__)')" >> "$GITHUB_OUTPUT"
 
+      - name: Smoke-test compiled binaries
+        run: |
+          echo "=== Test CLI binary ==="
+          CLI/videocr_cli.dist/videocr-cli --help
+          echo "CLI exited with $?"
+
+          echo "=== Test GUI binary exists and is executable ==="
+          test -f "VideOCR.app/Contents/MacOS/VideOCR" || { echo "ERROR: GUI binary not found"; exit 1; }
+          test -x "VideOCR.app/Contents/MacOS/VideOCR" || { echo "ERROR: GUI binary not executable"; exit 1; }
+
+          echo "=== Verify bundle structure ==="
+          ls -la "VideOCR.app/Contents/MacOS/"
+          test -f "VideOCR.app/Contents/MacOS/languages/en.json" || { echo "ERROR: languages dir not bundled"; exit 1; }
+
+          echo "All smoke tests passed."
+
       - name: Package and sign .app bundle
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -75,6 +91,31 @@ jobs:
 
           # Use ditto to create a zip that preserves macOS metadata
           ditto -c -k --keepParent "Releases/${APP_NAME}.app" "Releases/${APP_NAME}.zip"
+
+      - name: Verify codesign and final bundle
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
+        run: |
+          SUFFIX=""
+          if [ -n "$RELEASE_TYPE" ]; then
+            SUFFIX="-$RELEASE_TYPE"
+          fi
+          APP_NAME="VideOCR-v${VERSION}${SUFFIX}-macOS-arm64"
+
+          echo "=== Verify codesign ==="
+          codesign -v --deep "Releases/${APP_NAME}.app" && echo "codesign OK"
+
+          echo "=== Verify zip exists ==="
+          test -f "Releases/${APP_NAME}.zip" || { echo "ERROR: zip not created"; exit 1; }
+          ls -lh "Releases/${APP_NAME}.zip"
+
+          echo "=== Verify CLI is inside .app ==="
+          CLI_FOLDER="videocr-cli-CPU-v${VERSION}"
+          test -f "Releases/${APP_NAME}.app/Contents/MacOS/${CLI_FOLDER}/videocr-cli" \
+            || { echo "ERROR: CLI binary not found inside .app bundle"; exit 1; }
+
+          echo "Final bundle verification passed."
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
